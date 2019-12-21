@@ -1,16 +1,23 @@
 package main
 
 import (
+	"expvar"
+	_ "expvar"
 	"fmt"
 	"io"
 	"net/http"
+	"text/template"
 )
+
+var myCount = expvar.NewInt("my.count")
+var myStatus = expvar.NewString("my.status")
 
 func main() {
 	http.Handle("/", http.FileServer(http.Dir(".")))
 	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/hellohtml", hellohtml)
 	http.HandleFunc("/formsubmit", formsubmit)
+	http.HandleFunc("/template", hellotemphandler)
 	http.ListenAndServe(":9000", nil)
 }
 
@@ -42,4 +49,26 @@ func hellohtml(response http.ResponseWriter, request *http.Request) {
 func formsubmit(response http.ResponseWriter, request *http.Request) {
 	fmt.Println("Welcome", request.FormValue("user"))
 	fmt.Println("Your password is", request.FormValue("password"))
+}
+
+const hellotemplate = `
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Template page</title>
+	</head>
+	<body>
+		<h1>Hello, {{.Name}}!</h1>
+	</body>
+</html>
+`
+
+var hellotmpl = template.Must(template.New(".").Parse(hellotemplate))
+
+func hellotemphandler(response http.ResponseWriter, request *http.Request) {
+	myCount.Add(1)
+	myStatus.Set("Good")
+	hellotmpl.Execute(response, map[string]interface{}{
+		"Name": "Bob",
+	})
 }
